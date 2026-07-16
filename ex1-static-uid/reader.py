@@ -12,17 +12,17 @@ class Reader:
 
     def present(self, card) -> bool:
         print(f"[READER] Received UID: {card.uid.decode()}")
-        self._log(card.uid)
-        if card.uid in self.allowlist:
+        granted = card.uid in self.allowlist
+        self._log(card.uid, granted)
+        if granted:
             print("[READER] UID found in allowlist.")
             print("[DOOR]   *** ACCESS GRANTED ***")
-            return True
         else:
             print("[READER] UID not in allowlist.")
             print("[DOOR]   *** ACCESS DENIED ***")
-            return False
+        return granted
 
-    def _log(self, uid: bytes):
+    def _log(self, uid: bytes, granted: bool):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a") as f:
-            f.write(uid.decode() + "\n")
+            f.write(f"{uid.decode()},{'GRANTED' if granted else 'DENIED'}\n")

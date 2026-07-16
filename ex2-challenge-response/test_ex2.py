@@ -25,15 +25,14 @@ def _parse_log(log_file):
 
 # --- Red exercise ---
 
-def test_correct_key_grants_access(capsys, tmp_path):
+def test_correct_key_grants_access(tmp_path):
     result = _make_reader(tmp_path).present(Card(uid=UID, key=KEY))
 
     assert result is True
-    out = capsys.readouterr().out
-    assert f"[READER] Received UID: {UID.decode()}" in out
-    assert "[READER] Sending challenge:" in out
-    assert "[READER] Response verified." in out
-    assert "ACCESS GRANTED" in out
+    fields = _parse_log(tmp_path / "last_session.txt")
+    assert fields["uid"] == UID.decode()
+    assert "nonce" in fields
+    assert fields["result"] == "GRANTED"
 
 
 def test_challenge_is_random(tmp_path):
@@ -64,11 +63,11 @@ def test_response_changes_with_challenge(tmp_path):
 
 # --- Yellow exercise ---
 
-def test_wrong_key_denies_access(capsys, tmp_path):
+def test_wrong_key_denies_access(tmp_path):
     result = _make_reader(tmp_path).present(Card(uid=UID, key=b"wrong_key"))
 
     assert result is False
-    assert "ACCESS DENIED" in capsys.readouterr().out
+    assert _parse_log(tmp_path / "last_session.txt")["result"] == "DENIED"
 
 
 def test_wrong_key_response_is_completely_different():
@@ -105,6 +104,7 @@ def test_session_log_written(tmp_path):
     fields = _parse_log(log_file)
     assert "nonce" in fields
     assert "response" in fields
+    assert fields["result"] == "GRANTED"
 
 
 # --- Green exercise (card_skeleton.py) ---

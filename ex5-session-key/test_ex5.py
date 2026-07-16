@@ -36,33 +36,33 @@ def _make_card():
 # Happy path
 # ---------------------------------------------------------------------------
 
-def test_establish_returns_secure_channel():
-    ch = Session(_make_reader(), _make_card()).establish()
+def test_establish_returns_secure_channel(tmp_path):
+    ch = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert isinstance(ch, SecureChannel)
 
 
-def test_secure_channel_command_roundtrip():
-    ch = Session(_make_reader(), _make_card()).establish()
+def test_secure_channel_command_roundtrip(tmp_path):
+    ch = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert "DEADBEEF" in ch.send_command("READ_SECTOR 1")
 
 
-def test_each_session_derives_fresh_key():
+def test_each_session_derives_fresh_key(tmp_path):
     # Ephemeral X25519 guarantees a unique DH secret — and thus a unique session key —
     # every time, even for the same badge presenting to the same reader.
-    ch1 = Session(_make_reader(), _make_card()).establish()
-    ch2 = Session(_make_reader(), _make_card()).establish()
+    ch1 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
+    ch2 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert ch1.session_key != ch2.session_key
 
 
-def test_same_nonces_different_ephemeral_keys_yield_different_session_keys():
+def test_same_nonces_different_ephemeral_keys_yield_different_session_keys(tmp_path):
     # Even when nonces are identical, two sessions differ because each session
     # generates a fresh ephemeral keypair. Patch os.urandom to fix nonce values
     # without fixing X25519PrivateKey.generate(), which uses the OS CSPRNG directly.
     from unittest.mock import patch
     fixed_nonce = bytes.fromhex("aabbccddaabbccdd")
     with patch("os.urandom", return_value=fixed_nonce):
-        ch1 = Session(_make_reader(), _make_card()).establish()
-        ch2 = Session(_make_reader(), _make_card()).establish()
+        ch1 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
+        ch2 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert ch1.session_key != ch2.session_key
 
 
@@ -104,22 +104,22 @@ def test_generate_ephemeral_keypair_requires_authenticated_session():
         _make_card().generate_ephemeral_keypair()
 
 
-def test_rogue_reader_gets_none():
-    ch = Session(RogueReader(), _make_card()).establish()
+def test_rogue_reader_gets_none(tmp_path):
+    ch = Session(RogueReader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert ch is None
 
 
-def test_wrong_master_key_gets_none():
+def test_wrong_master_key_gets_none(tmp_path):
     bad_reader = Reader(b"wrong_master_key", _SIGNING_PRIVATE, _DH_PRIVATE)
-    ch = Session(bad_reader, _make_card()).establish()
+    ch = Session(bad_reader, _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert ch is None
 
 
-def test_wrong_signing_key_gets_none():
+def test_wrong_signing_key_gets_none(tmp_path):
     # A reader with a different Ed25519 private key cannot pass Phase 2 —
     # the badge's embedded public key will reject the signature.
     imposter = Reader(MASTER, Ed25519PrivateKey.generate(), _DH_PRIVATE)
-    ch = Session(imposter, _make_card()).establish()
+    ch = Session(imposter, _make_card(), log_path=tmp_path / "last_session.txt").establish()
     assert ch is None
 
 
@@ -127,17 +127,17 @@ def test_wrong_signing_key_gets_none():
 # Encryption properties
 # ---------------------------------------------------------------------------
 
-def test_each_session_produces_different_ciphertext():
-    ch1 = Session(_make_reader(), _make_card()).establish()
-    ch2 = Session(_make_reader(), _make_card()).establish()
+def test_each_session_produces_different_ciphertext(tmp_path):
+    ch1 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
+    ch2 = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     enc1 = encrypt(ch1.session_key, "READ_SECTOR 0")
     enc2 = encrypt(ch2.session_key, "READ_SECTOR 0")
     assert enc1 != enc2
 
 
-def test_tampered_command_raises():
+def test_tampered_command_raises(tmp_path):
     from cryptography.exceptions import InvalidTag
-    ch = Session(_make_reader(), _make_card()).establish()
+    ch = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
     ciphertext = bytearray(encrypt(ch.session_key, "READ_SECTOR 0"))
     ciphertext[15] ^= 0xFF
     with pytest.raises(InvalidTag):
@@ -150,16 +150,16 @@ def test_tampered_command_raises():
 
 @pytest.mark.skip(reason="Green exercise: implement session revocation")
 class TestGreenExercise:
-    def test_channel_unusable_after_explicit_close(self):
-        ch = Session(_make_reader(), _make_card()).establish()
+    def test_channel_unusable_after_explicit_close(self, tmp_path):
+        ch = Session(_make_reader(), _make_card(), log_path=tmp_path / "last_session.txt").establish()
         ch.close()
         with pytest.raises(Exception):
             ch.send_command("READ_SECTOR 0")
 
-    def test_second_establish_invalidates_first_channel(self):
+    def test_second_establish_invalidates_first_channel(self, tmp_path):
         card = _make_card()
         reader = _make_reader()
-        ch1 = Session(reader, card).establish()
-        ch2 = Session(reader, card).establish()
+        ch1 = Session(reader, card, log_path=tmp_path / "last_session.txt").establish()
+        ch2 = Session(reader, card, log_path=tmp_path / "last_session.txt").establish()
         with pytest.raises(Exception):
             ch1.send_command("READ_SECTOR 0")

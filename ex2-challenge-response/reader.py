@@ -17,26 +17,31 @@ class Reader:
         if card.uid not in self.keys:
             print("[READER] UID not recognized.")
             print("[DOOR]   *** ACCESS DENIED ***")
+            self._log(card.uid, None, None, "DENIED")
             return False
 
         nonce = os.urandom(8).hex().upper()
         print(f"[READER] Sending challenge: {nonce}")
 
         response = card.respond(nonce)
-        self._log(nonce, response)
-
         expected = hmac.new(self.keys[card.uid], nonce.encode(), hashlib.sha256).hexdigest()
-        if hmac.compare_digest(response, expected):
+        granted = hmac.compare_digest(response, expected)
+
+        if granted:
             print("[READER] Response verified.")
             print("[DOOR]   *** ACCESS GRANTED ***")
-            return True
         else:
             print("[READER] Response incorrect.")
             print("[DOOR]   *** ACCESS DENIED ***")
-            return False
 
-    def _log(self, nonce: str, response: str):
+        self._log(card.uid, nonce, response, "GRANTED" if granted else "DENIED")
+        return granted
+
+    def _log(self, uid: bytes, nonce, response, result: str):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("w") as f:
-            f.write(f"nonce={nonce}\n")
-            f.write(f"response={response}\n")
+            f.write(f"uid={uid.decode()}\n")
+            if nonce is not None:
+                f.write(f"nonce={nonce}\n")
+                f.write(f"response={response}\n")
+            f.write(f"result={result}\n")

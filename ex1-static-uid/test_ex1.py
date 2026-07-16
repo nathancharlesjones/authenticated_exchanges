@@ -6,26 +6,30 @@ from reader import Reader
 from card import Card
 
 
-def test_known_uid_grants_access(capsys, tmp_path):
-    reader = Reader(allowlist=[b"A3F29C11", b"B7E10422"], log_path=tmp_path / "observed_uids.txt")
-    card = Card(uid=b"A3F29C11")
-    result = reader.present(card)
+def _parse_log(log_file):
+    return [line.split(",") for line in log_file.read_text().splitlines()]
+
+
+def test_known_uid_grants_access(tmp_path):
+    log_file = tmp_path / "observed_uids.txt"
+    reader = Reader(allowlist=[b"A3F29C11", b"B7E10422"], log_path=log_file)
+    result = reader.present(Card(uid=b"A3F29C11"))
 
     assert result is True
-    out = capsys.readouterr().out
-    assert "[READER] Received UID: A3F29C11" in out
-    assert "ACCESS GRANTED" in out
+    uid, status = _parse_log(log_file)[0]
+    assert uid == "A3F29C11"
+    assert status == "GRANTED"
 
 
-def test_unknown_uid_denies_access(capsys, tmp_path):
-    reader = Reader(allowlist=[b"A3F29C11", b"B7E10422"], log_path=tmp_path / "observed_uids.txt")
-    card = Card(uid=b"DEADBEEF")
-    result = reader.present(card)
+def test_unknown_uid_denies_access(tmp_path):
+    log_file = tmp_path / "observed_uids.txt"
+    reader = Reader(allowlist=[b"A3F29C11", b"B7E10422"], log_path=log_file)
+    result = reader.present(Card(uid=b"DEADBEEF"))
 
     assert result is False
-    out = capsys.readouterr().out
-    assert "[READER] Received UID: DEADBEEF" in out
-    assert "ACCESS DENIED" in out
+    uid, status = _parse_log(log_file)[0]
+    assert uid == "DEADBEEF"
+    assert status == "DENIED"
 
 
 def test_uid_written_to_log(tmp_path):
@@ -35,8 +39,8 @@ def test_uid_written_to_log(tmp_path):
     reader.present(Card(uid=b"A3F29C11"))
     reader.present(Card(uid=b"DEADBEEF"))
 
-    lines = log_file.read_text().splitlines()
-    assert lines == ["A3F29C11", "DEADBEEF"]
+    entries = _parse_log(log_file)
+    assert [uid for uid, _ in entries] == ["A3F29C11", "DEADBEEF"]
 
 
 def test_cloned_uid_grants_access(tmp_path):
@@ -45,6 +49,6 @@ def test_cloned_uid_grants_access(tmp_path):
     reader = Reader(allowlist=[b"A3F29C11"], log_path=log_file)
     reader.present(Card(uid=b"A3F29C11"))
 
-    captured_uid = log_file.read_text().splitlines()[0]
+    captured_uid, _ = _parse_log(log_file)[0]
     cloned_card = Card(uid=captured_uid.encode())
     assert reader.present(cloned_card) is True
