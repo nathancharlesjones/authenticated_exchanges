@@ -81,11 +81,7 @@ class TestGreenExercise:
     pytestmark = pytest.mark.skip(reason="Green exercise: provision FF00AA55 and experiment with revocation first")
 
     def test_new_card_provisioned(self, tmp_path):
-        uid = b"FF00AA55"
-        card = Card(uid=uid, key=derive_key(MASTER, uid))
-        assert _make_reader(tmp_path).present(card) is True
+        raise NotImplementedError
 
     def test_revoked_new_card_denied(self, tmp_path):
-        uid = b"FF00AA55"
-        card = Card(uid=uid, key=derive_key(MASTER, uid))
-        assert _make_reader(tmp_path, revoked={uid}).present(card) is False
+        raise NotImplementedError

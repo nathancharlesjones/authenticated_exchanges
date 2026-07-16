@@ -28,11 +28,8 @@ class Reader:
         response = card.respond(nonce)
         self._log(nonce, response)
 
-        # Replaced with this for actual exercise code:
         # card_key = derive_key(  )
         # expected = hmac.new(   )
-        card_key = derive_key(self.master_key, card.uid)
-        expected = hmac.new(card_key, nonce.encode(), hashlib.sha256).hexdigest()
 
         if hmac.compare_digest(response, expected):
             print("[READER] Response verified.")

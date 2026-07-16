@@ -48,7 +48,3 @@ def test_cloned_uid_grants_access(tmp_path):
     captured_uid = log_file.read_text().splitlines()[0]
     cloned_card = Card(uid=captured_uid.encode())
     assert reader.present(cloned_card) is True
-
-
-def test_default_allowlist_size():
-    assert len(Reader.ALLOWLIST) == 3
