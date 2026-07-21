@@ -4,8 +4,8 @@ import os
 class RogueReader:
     """
     A reader with no legitimate private key.
-    Accepts all cards in Phase 1 (harvesting their responses),
-    but cannot produce a valid signature for the card's Phase 2 challenge.
+    Accepts all badges in Phase 1 (harvesting their responses),
+    but cannot produce a valid signature for the badge's Phase 2 challenge.
     """
 
     def phase1_challenge(self) -> str:

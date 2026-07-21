@@ -10,10 +10,10 @@ class Reader:
         self.allowlist = [uid.upper() for uid in (allowlist or self.ALLOWLIST)]
         self.log_path = Path(log_path)
 
-    def present(self, card) -> bool:
-        print(f"[READER] Received UID: {card.uid.decode()}")
-        granted = card.uid in self.allowlist
-        self._log(card.uid, granted)
+    def present(self, badge) -> bool:
+        print(f"[READER] Received UID: {badge.uid.decode()}")
+        granted = badge.uid in self.allowlist
+        self._log(f"{badge.uid.decode()},{'GRANTED' if granted else 'DENIED'}")
         if granted:
             print("[READER] UID found in allowlist.")
             print("[DOOR]   *** ACCESS GRANTED ***")
@@ -22,7 +22,7 @@ class Reader:
             print("[DOOR]   *** ACCESS DENIED ***")
         return granted
 
-    def _log(self, uid: bytes, granted: bool):
+    def _log(self, line: str):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a") as f:
-            f.write(f"{uid.decode()},{'GRANTED' if granted else 'DENIED'}\n")
+            f.write(f"{line}\n")

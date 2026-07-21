@@ -59,8 +59,6 @@ def test_response_changes_with_challenge(log_path):
     assert response1 != response2
 
 
-# --- Yellow exercise ---
-
 def test_wrong_key_denies_access(log_path):
     result = _make_reader(log_path).present(Badge(uid=UID, key=b"wrong_key"))
 
@@ -79,20 +77,6 @@ def test_wrong_key_response_is_completely_different():
     assert matching < len(correct) // 4
 
 
-def test_replay_attack_denied(log_path):
-    reader = _make_reader(log_path)
-
-    reader.present(Badge(uid=UID, key=KEY))
-    captured_response = _parse_log(log_path)["response"]
-
-    class ReplayBadge:
-        uid = UID
-        def respond(self, nonce):
-            return captured_response
-
-    assert reader.present(ReplayBadge()) is False
-
-
 def test_session_log_written(log_path):
     _make_reader(log_path).present(Badge(uid=UID, key=KEY))
 
@@ -101,26 +85,20 @@ def test_session_log_written(log_path):
     assert "nonce" in fields
     assert "response" in fields
     assert fields["result"] == "GRANTED"
+    
 
+# --- Yellow exercise ---
 
-# --- Green exercise (badge_skeleton.py) ---
-# To enable: remove the pytestmark line from TestGreenExercise below.
+def test_replay_attack_denied(log_path):
+    reader = # ???
 
-class TestGreenExercise:
-    pytestmark = pytest.mark.skip(reason="Green exercise: fill in compute_response() in badge_skeleton.py first")
+    captured_response = # ???
 
-    def test_skeleton_compute_response_known_vector(self):
-        from badge_skeleton import compute_response as skeleton_fn
-        expected = hmac.new(KEY, b"AABBCCDD11223344", hashlib.sha256).hexdigest()
-        assert skeleton_fn(KEY, "AABBCCDD11223344") == expected
+    class ReplayBadge:
+        def __init__(self, uid: bytes, response: bytes):
+            self.uid = uid
+            self.response = response
+        def respond(self, nonce):
+            return self.response
 
-    def test_skeleton_compute_response_is_hex(self):
-        from badge_skeleton import compute_response as skeleton_fn
-        result = skeleton_fn(KEY, "AABBCCDD11223344")
-        assert len(result) == 64
-        assert all(c in "0123456789abcdef" for c in result)
-
-    def test_skeleton_passes_reader_verification(self, log_path):
-        from badge_skeleton import Badge as SkeletonBadge
-        result = _make_reader(log_path).present(SkeletonBadge(uid=UID, key=KEY))
-        assert result is True
+    assert reader.present(ReplayBadge(UID, captured_response)) is False

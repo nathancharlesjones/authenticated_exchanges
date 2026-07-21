@@ -6,7 +6,7 @@ class RogueReader:
     A reader with no private keys.
     Accepts all badges in Phase 1 (harvesting their MACs),
     but cannot produce a valid Ed25519 signature for Phase 2,
-    and cannot complete the DH exchange.
+    so it never reaches Phase 3 and never learns the badge's info key.
     """
 
     def phase1_challenge(self) -> str:
@@ -21,7 +21,3 @@ class RogueReader:
     def phase2_sign(self, nonce2: str) -> bytes:
         print("[ROGUE]  Cannot sign Phase 2 challenge (no private key).")
         return b""
-
-    def derive_session_key(self, uid: bytes, nonce_r: str, nonce_c: str, ephemeral_pub: bytes) -> bytes:
-        print("[ROGUE]  Cannot complete DH exchange (no DH private key).")
-        return b"\x00" * 16

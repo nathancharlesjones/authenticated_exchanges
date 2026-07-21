@@ -14,22 +14,22 @@ def decrypt(key: bytes, data: bytes) -> str:
 
 
 class SecureChannel:
-    def __init__(self, session_key: bytes, reader, card):
-        self.session_key = session_key
+    def __init__(self, info_key: bytes, reader, badge):
+        self.info_key = info_key
         self._reader = reader
-        self._card = card
+        self._badge = badge
 
     def send_command(self, command: str) -> str:
-        enc_command = encrypt(self.session_key, command)
+        enc_command = encrypt(self.info_key, command)
         print(f"[READER] Sending encrypted command: {enc_command.hex()[:16]}...")
 
-        decrypted_command = decrypt(self.session_key, enc_command)
-        print(f"[CARD]   Decrypted command: {decrypted_command}")
-        response = self._card.handle_command(decrypted_command)
+        decrypted_command = decrypt(self.info_key, enc_command)
+        print(f"[BADGE]   Decrypted command: {decrypted_command}")
+        response = self._badge.handle_command(decrypted_command)
 
-        enc_response = encrypt(self.session_key, response)
-        print(f"[CARD]   Sending encrypted response: {enc_response.hex()[:16]}...")
+        enc_response = encrypt(self.info_key, response)
+        print(f"[BADGE]   Sending encrypted response: {enc_response.hex()[:16]}...")
 
-        final = decrypt(self.session_key, enc_response)
+        final = decrypt(self.info_key, enc_response)
         print(f"[READER] Decrypted response: {final}")
         return final

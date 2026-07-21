@@ -7,81 +7,63 @@ from unittest.mock import patch
 import pytest
 from derive_key import derive_key
 from reader import Reader
-from card import Card
+from badge import Badge
 
 
-MASTER = b"workshop_master_key"
+FLEET = os.urandom(16)
 UID_A = b"A3F29C11"
 UID_B = b"B7E10422"
 
 
-def _make_reader(tmp_path, revoked=None):
-    return Reader(master_key=MASTER, revoked=revoked or set(), log_path=tmp_path / "last_session.txt")
+def _make_reader(log_path, revoked=None):
+    return Reader(fleet_key=FLEET, revoked=revoked or set(), log_path=log_path)
 
 
 def _parse_log(log_file):
     return dict(line.split("=", 1) for line in log_file.read_text().splitlines())
 
 
-# --- Red exercise ---
-
-def test_two_cards_both_granted(tmp_path):
-    reader = _make_reader(tmp_path)
-    assert reader.present(Card(uid=UID_A, key=derive_key(MASTER, UID_A))) is True
-    assert reader.present(Card(uid=UID_B, key=derive_key(MASTER, UID_B))) is True
+def test_two_badges_both_granted(log_path):
+    reader = _make_reader(log_path)
+    assert reader.present(Badge(uid=UID_A, key=derive_key(FLEET, UID_A))) is True
+    assert reader.present(Badge(uid=UID_B, key=derive_key(FLEET, UID_B))) is True
 
 
-def test_different_cards_respond_differently_to_same_nonce(tmp_path):
-    log_file = tmp_path / "last_session.txt"
+def test_different_badges_respond_differently_to_same_nonce(log_path):
     fixed = bytes.fromhex("AABBCCDD11223344")
 
     with patch("os.urandom", return_value=fixed):
-        Reader(master_key=MASTER, log_path=log_file).present(Card(uid=UID_A, key=derive_key(MASTER, UID_A)))
-        response_a = _parse_log(log_file)["response"]
+        Reader(fleet_key=FLEET, log_path=log_path).present(Badge(uid=UID_A, key=derive_key(FLEET, UID_A)))
+        response_a = _parse_log(log_path)["response"]
 
-        Reader(master_key=MASTER, log_path=log_file).present(Card(uid=UID_B, key=derive_key(MASTER, UID_B)))
-        response_b = _parse_log(log_file)["response"]
+        Reader(fleet_key=FLEET, log_path=log_path).present(Badge(uid=UID_B, key=derive_key(FLEET, UID_B)))
+        response_b = _parse_log(log_path)["response"]
 
     assert response_a != response_b
 
 
-# --- Yellow exercise ---
-
 def test_derived_keys_differ_per_uid():
-    assert derive_key(MASTER, UID_A) != derive_key(MASTER, UID_B)
+    assert derive_key(FLEET, UID_A) != derive_key(FLEET, UID_B)
 
 
 def test_derive_key_is_deterministic():
-    assert derive_key(MASTER, UID_A) == derive_key(MASTER, UID_A)
+    assert derive_key(FLEET, UID_A) == derive_key(FLEET, UID_A)
 
 
-def test_stolen_card_key_cannot_clone_sibling(tmp_path):
-    # Attacker extracts card A's key and tries to authenticate as card B.
-    stolen_key = derive_key(MASTER, UID_A)
-    imposter = Card(uid=UID_B, key=stolen_key)
-    assert _make_reader(tmp_path).present(imposter) is False
+def test_stolen_badge_key_cannot_clone_sibling(log_path):
+    # Attacker extracts badge A's key and tries to authenticate as badge B.
+    stolen_key = derive_key(FLEET, UID_A)
+    imposter = Badge(uid=UID_B, key=stolen_key)
+    assert _make_reader(log_path).present(imposter) is False
 
 
-def test_master_key_compromise_covers_all_cards(tmp_path):
-    # With the master key, any UID can be authenticated — blast radius is total.
+def test_fleet_key_compromise_covers_all_badges(log_path):
+    # With the fleet key, any UID can be authenticated — blast radius is total.
     for uid in [UID_A, UID_B, b"FF00AA55", b"DEADBEEF"]:
-        card = Card(uid=uid, key=derive_key(MASTER, uid))
-        assert _make_reader(tmp_path).present(card) is True
+        badge = Badge(uid=uid, key=derive_key(FLEET, uid))
+        assert _make_reader(log_path).present(badge) is True
 
 
-def test_revoked_card_denied_despite_correct_key(tmp_path):
-    card = Card(uid=UID_A, key=derive_key(MASTER, UID_A))
-    assert _make_reader(tmp_path, revoked={UID_A}).present(card) is False
-
-
-# --- Green exercise ---
-# To enable: remove the pytestmark line from TestGreenExercise below.
-
-class TestGreenExercise:
-    pytestmark = pytest.mark.skip(reason="Green exercise: provision FF00AA55 and experiment with revocation first")
-
-    def test_new_card_provisioned(self, tmp_path):
-        raise NotImplementedError
-
-    def test_revoked_new_card_denied(self, tmp_path):
-        raise NotImplementedError
+def test_revoked_badge_denied_despite_correct_key(log_path):
+    badge = Badge(uid=UID_A, key=derive_key(FLEET, UID_A))
+    assert _make_reader(log_path, revoked={UID_A}).present(badge) is False
