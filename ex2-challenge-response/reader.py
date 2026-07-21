@@ -7,24 +7,29 @@ _DEFAULT_LOG = Path(__file__).parent / "logs" / "last_session.txt"
 
 
 class Reader:
-    def __init__(self, keys: dict, log_path: Path = _DEFAULT_LOG):
-        self.keys = {uid.upper(): key for uid, key in keys.items()}
+    def __init__(self, key: bytes, allowlist: list, log_path: Path = _DEFAULT_LOG):
+        self.key = key
+        self.allowlist = allowlist
         self.log_path = Path(log_path)
 
-    def present(self, card) -> bool:
-        print(f"[READER] Received UID: {card.uid.decode()}")
+    def present(self, badge) -> bool:
+        self._clear_log()
+        print(f"[READER] Received UID: {badge.uid.decode()}")
+        self._log(f"uid={badge.uid.decode()}")
 
-        if card.uid not in self.keys:
+        if badge.uid not in self.allowlist:
             print("[READER] UID not recognized.")
             print("[DOOR]   *** ACCESS DENIED ***")
-            self._log(card.uid, None, None, "DENIED")
+            self._log("result=DENIED")
             return False
 
         nonce = os.urandom(8).hex().upper()
         print(f"[READER] Sending challenge: {nonce}")
+        self._log(f"nonce={nonce}")
 
-        response = card.respond(nonce)
-        expected = hmac.new(self.keys[card.uid], nonce.encode(), hashlib.sha256).hexdigest()
+        response = badge.respond(nonce)
+        self._log(f"response={response}")
+        expected = hmac.new(self.key, nonce.encode(), hashlib.sha256).hexdigest()
         granted = hmac.compare_digest(response, expected)
 
         if granted:
@@ -34,14 +39,13 @@ class Reader:
             print("[READER] Response incorrect.")
             print("[DOOR]   *** ACCESS DENIED ***")
 
-        self._log(card.uid, nonce, response, "GRANTED" if granted else "DENIED")
+        self._log(f"result={'GRANTED' if granted else 'DENIED'}")
         return granted
 
-    def _log(self, uid: bytes, nonce, response, result: str):
+    def _clear_log(self):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.log_path.open("w") as f:
-            f.write(f"uid={uid.decode()}\n")
-            if nonce is not None:
-                f.write(f"nonce={nonce}\n")
-                f.write(f"response={response}\n")
-            f.write(f"result={result}\n")
+        self.log_path.write_text("")
+
+    def _log(self, line: str):
+        with self.log_path.open("a") as f:
+            f.write(f"{line}\n")

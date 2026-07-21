@@ -7,13 +7,13 @@ def compute_response(key: bytes, nonce: str) -> str:
     return mac.hexdigest()
 
 
-class Card:
+class Badge:
     def __init__(self, uid: bytes, key: bytes):
         self.uid = uid.upper()
         self.key = key
 
     def respond(self, nonce: str) -> str:
-        print(f"[CARD]   Received challenge: {nonce}")
+        print(f"[BADGE]   Received challenge: {nonce}")
         response = compute_response(self.key, nonce)
-        print(f"[CARD]   Sending response:   {response[:16]}...")
+        print(f"[BADGE]   Sending response:   {response[:16]}...")
         return response
